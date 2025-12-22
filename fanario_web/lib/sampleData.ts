@@ -55,7 +55,7 @@ export const publications: Publication[] = [
     creatorId: "luz",
     title: "Boceto del cartel de marzo",
     excerpt: "Trazo inicial, paleta y cómo llegué al contraste final.",
-    image: "https://images.unsplash.com/photo-1523419400524-fc1e05b3df52?auto=format&fit=crop&w=800&q=60",
+    image: "https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?auto=format&fit=crop&w=800&q=80",
     isPublic: true,
     date: "2025-01-03",
   },

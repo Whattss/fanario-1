@@ -32,6 +32,7 @@ export default async function CreatorPage({ params }: { params: Promise<{ id: st
           src={creator.cover}
           alt={`Portada de ${creator.name}`}
           fill
+          sizes="100vw"
           className="object-cover"
           priority
         />
@@ -47,6 +48,7 @@ export default async function CreatorPage({ params }: { params: Promise<{ id: st
                 src={creator.avatar}
                 alt={`Avatar de ${creator.name}`}
                 fill
+                sizes="(max-width: 640px) 128px, 160px"
                 className="object-cover"
                 priority
               />

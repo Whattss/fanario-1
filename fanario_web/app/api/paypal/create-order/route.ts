@@ -43,16 +43,40 @@ export async function POST(request: Request) {
           {
             amount: {
               currency_code: "EUR",
-              value: `${value.toFixed(2)}`,
+              value: value.toFixed(2),
             },
+            description: "Suscripción mensual Fanario",
           },
         ],
+        application_context: {
+          brand_name: "Fanario",
+          landing_page: "NO_PREFERENCE",
+          user_action: "PAY_NOW",
+          return_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/cuenta`,
+          cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/cuenta`,
+        },
       }),
     });
     const orderData = await orderRes.json();
     if (!orderRes.ok) {
-      console.error("PayPal create order error:", orderData);
-      return NextResponse.json({ error: orderData.message || "Error al crear orden" }, { status: 400 });
+      console.error("PayPal create order error:", JSON.stringify(orderData, null, 2));
+      
+      // Verificar si la cuenta está restringida
+      const isRestricted = orderData.details?.some(
+        (d: { issue: string }) => d.issue === "PAYEE_ACCOUNT_RESTRICTED"
+      );
+      
+      if (isRestricted) {
+        return NextResponse.json({ 
+          error: "Tu cuenta de PayPal necesita verificación. Ve a PayPal.com para completar la verificación de tu cuenta Business, o usa credenciales de Sandbox para desarrollo.",
+          details: orderData.details || []
+        }, { status: 400 });
+      }
+      
+      return NextResponse.json({ 
+        error: orderData.message || "Error al crear orden",
+        details: orderData.details || []
+      }, { status: 400 });
     }
     return NextResponse.json({ orderId: orderData.id });
   } catch (error: unknown) {

@@ -14,6 +14,9 @@ export default function AppProviders({ children, paypalClientId }: Props) {
       clientId: paypalClientId || "test",
       currency: "EUR",
       intent: "capture",
+      "data-sdk-integration-source": "integrationbuilder_sc",
+      "disable-funding": "credit,card",
+      vault: false,
     }),
     [paypalClientId]
   );

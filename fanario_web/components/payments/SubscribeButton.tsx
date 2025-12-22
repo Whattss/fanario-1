@@ -54,7 +54,12 @@ export default function SubscribeButton({
             });
             const data = await res.json();
             if (!res.ok) {
-              throw new Error(data.error || "Error al crear orden");
+              const errorMsg = data.error || "Error al crear orden";
+              // Mostrar mensaje más amigable si la cuenta está restringida
+              if (errorMsg.includes("verificación")) {
+                throw new Error("⚠️ Cuenta PayPal no verificada. Consulta PAYPAL_SETUP.md");
+              }
+              throw new Error(errorMsg);
             }
             if (!data.orderId) {
               throw new Error("No se recibió ID de orden");
