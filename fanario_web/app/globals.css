@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+:root {
+  --background: #fdfaf5;
+  --foreground: #0f0c0a;
+}
+
+/* Botones con fondo gris oscuro - SIEMPRE texto blanco */
+.bg-gray-900 {
+  background-color: #111827 !important;
+  color: #ffffff !important;
+}
+
+.bg-gray-900:hover {
+  background-color: #1f2937 !important;
+}
+
+/* Botones de formulario */
+button[type="submit"],
+form button {
+  font-weight: 600;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Body */
+body {
+  background-color: #fdfaf5;
+  color: #111827;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+a {
+  color: inherit;
+}
+
+img {
+  display: block;
+}
