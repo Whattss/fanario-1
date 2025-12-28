@@ -1,11 +1,11 @@
 "use client";
 
 import { PayPalButtons } from "@paypal/react-paypal-js";
-import { doc, serverTimestamp, setDoc, getDoc } from "firebase/firestore";
+import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
 import { useAuthUser } from "@/hooks/useAuthUser";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 export default function SubscribeButton({
   creatorId,
@@ -18,64 +18,6 @@ export default function SubscribeButton({
   const { user } = useAuthUser();
   const [error, setError] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
-  const [isSubscribed, setIsSubscribed] = useState(false);
-  const [checkingSubscription, setCheckingSubscription] = useState(true);
-
-  useEffect(() => {
-    async function checkSubscription() {
-      if (!user) {
-        setCheckingSubscription(false);
-        return;
-      }
-
-      try {
-        const subRef = doc(db, "subscriptions", `${user.uid}_${creatorId}`);
-        const subSnap = await getDoc(subRef);
-        setIsSubscribed(subSnap.exists() && subSnap.data()?.status === "activa");
-      } catch (e) {
-        console.error("Error checking subscription:", e);
-      } finally {
-        setCheckingSubscription(false);
-      }
-    }
-
-    checkSubscription();
-  }, [user, creatorId]);
-
-  if (!user) {
-    return (
-      <div className="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm text-center">
-        <p className="text-sm text-gray-600 mb-2">Inicia sesión para suscribirte</p>
-        <button
-          onClick={() => router.push("/cuenta")}
-          className="w-full rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
-        >
-          Iniciar sesión
-        </button>
-      </div>
-    );
-  }
-
-  if (checkingSubscription) {
-    return (
-      <div className="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
-        <div className="text-sm text-gray-500">Verificando suscripción...</div>
-      </div>
-    );
-  }
-
-  if (isSubscribed) {
-    return (
-      <div className="rounded-2xl border border-green-200 bg-green-50 p-3 shadow-sm">
-        <div className="flex items-center gap-2 text-green-700">
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
-          <span className="text-sm font-semibold">Ya estás suscrito</span>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
@@ -113,6 +55,7 @@ export default function SubscribeButton({
             const data = await res.json();
             if (!res.ok) {
               const errorMsg = data.error || "Error al crear orden";
+              // Mostrar mensaje más amigable si la cuenta está restringida
               if (errorMsg.includes("verificación")) {
                 throw new Error("⚠️ Cuenta PayPal no verificada. Consulta PAYPAL_SETUP.md");
               }
@@ -143,10 +86,8 @@ export default function SubscribeButton({
             if (user?.uid) {
               try {
                 await setDoc(
-                  doc(db, "subscriptions", `${user.uid}_${creatorId}`),
+                  doc(db, "subscriptions", user.uid, "creators", creatorId),
                   {
-                    userId: user.uid,
-                    creatorId,
                     status: "activa",
                     amount,
                     currency: "EUR",
@@ -160,7 +101,6 @@ export default function SubscribeButton({
               }
             }
             setProcessing(false);
-            setIsSubscribed(true);
             alert("¡Suscripción completada con éxito!");
             router.refresh();
           } catch (err) {

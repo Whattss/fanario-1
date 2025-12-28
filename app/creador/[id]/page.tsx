@@ -1,13 +1,86 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { doc, getDoc, collection, query, where, getDocs, orderBy } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import SubscribeButton from "@/components/payments/SubscribeButton";
 import PostCard from "@/components/cards/PostCard";
-import { creators, publications } from "@/lib/sampleData";
+import { useParams } from "next/navigation";
 
-export default async function CreatorPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const creator = creators.find((c) => c.id === id);
-  const posts = publications.filter((p) => p.creatorId === id);
+type Creator = {
+  id: string;
+  name: string;
+  bio: string;
+  category: string;
+  price: number;
+  avatar?: string;
+  cover?: string;
+};
+
+type Publication = {
+  id: string;
+  creatorId: string;
+  title: string;
+  excerpt: string;
+  image?: string;
+  video?: string;
+  isPublic: boolean;
+  createdAt: any;
+};
+
+export default function CreatorPage() {
+  const params = useParams();
+  const id = params?.id as string;
+  
+  const [creator, setCreator] = useState<Creator | null>(null);
+  const [posts, setPosts] = useState<Publication[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadData() {
+      if (!id) return;
+      
+      try {
+        // Cargar creador
+        const creatorDoc = await getDoc(doc(db, "creators", id));
+        if (creatorDoc.exists()) {
+          setCreator({ id: creatorDoc.id, ...creatorDoc.data() } as Creator);
+          
+          // Cargar posts del creador
+          const postsQuery = query(
+            collection(db, "publications"),
+            where("creatorId", "==", id),
+            orderBy("createdAt", "desc")
+          );
+          const postsSnapshot = await getDocs(postsQuery);
+          const postsData = postsSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          })) as Publication[];
+          setPosts(postsData);
+        }
+      } catch (error) {
+        console.error("Error cargando datos:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    loadData();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-gray-900 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Cargando...</p>
+        </div>
+      </main>
+    );
+  }
 
   if (!creator) {
     return (
@@ -24,12 +97,15 @@ export default async function CreatorPage({ params }: { params: Promise<{ id: st
     );
   }
 
+  const defaultCover = "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=60";
+  const defaultAvatar = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=300&q=60";
+
   return (
     <main className="pb-28">
       {/* Cover Image */}
       <div className="relative h-48 w-full bg-gray-100 sm:h-64 lg:h-80">
         <Image
-          src={creator.cover}
+          src={creator.cover || defaultCover}
           alt={`Portada de ${creator.name}`}
           fill
           sizes="100vw"
@@ -45,13 +121,95 @@ export default async function CreatorPage({ params }: { params: Promise<{ id: st
           <div className="flex items-end gap-4">
             <div className="relative h-32 w-32 overflow-hidden rounded-full border-4 border-white bg-white shadow-md sm:h-40 sm:w-40">
               <Image
-                src={creator.avatar}
+                src={creator.avatar || defaultAvatar}
                 alt={`Avatar de ${creator.name}`}
                 fill
                 sizes="(max-width: 640px) 128px, 160px"
                 className="object-cover"
                 priority
               />
+            </div>
+            <div className="mb-2 hidden sm:block">
+              <h1 className="text-3xl font-bold text-white drop-shadow-md">{creator.name}</h1>
+              <span className="rounded-full bg-white/20 px-3 py-1 text-sm font-medium text-white backdrop-blur-md">
+                {creator.category}
+              </span>
+            </div>
+          </div>
+          
+          <div className="mt-4 w-full sm:mt-0 sm:w-auto">
+             {/* Mobile Name */}
+            <div className="mb-4 sm:hidden">
+              <h1 className="text-2xl font-bold text-gray-900">{creator.name}</h1>
+              <span className="text-sm font-medium text-gray-500">{creator.category}</span>
+            </div>
+            
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:min-w-[280px]">
+               <div className="mb-3 flex items-baseline justify-between">
+                 <span className="text-sm font-medium text-gray-500">Suscripción mensual</span>
+                 <span className="text-2xl font-bold text-gray-900">€{creator.price.toFixed(2)}</span>
+               </div>
+               <SubscribeButton creatorId={creator.id} amount={creator.price} />
+            </div>
+          </div>
+        </div>
+
+        {/* Bio & Content */}
+        <div className="grid gap-8 lg:grid-cols-3">
+          {/* Sidebar Info */}
+          <div className="space-y-6 lg:col-span-1">
+            <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
+              <h2 className="mb-3 font-semibold text-gray-900">Sobre {creator.name}</h2>
+              <p className="text-sm leading-relaxed text-gray-600">{creator.bio}</p>
+              
+              <div className="mt-6 space-y-3 border-t border-gray-200 pt-4">
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                  </svg>
+                  <span>{posts.length} publicaciones</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                  <span>Comunidad activa</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Main Content Feed */}
+          <div className="lg:col-span-2 space-y-6">
+            <div className="flex items-center justify-between border-b border-gray-200 pb-4">
+              <h2 className="text-xl font-bold text-gray-900">Publicaciones recientes</h2>
+            </div>
+
+            {posts.length > 0 ? (
+              <div className="space-y-6">
+                {posts.map((post) => (
+                  <PostCard
+                    key={post.id}
+                    publication={{
+                      ...post,
+                      date: post.createdAt?.toDate?.()?.toISOString?.() || new Date().toISOString()
+                    }}
+                    creatorName={creator.name}
+                    locked={!post.isPublic}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-12 text-center">
+                <p className="text-gray-500">Este creador aún no ha publicado nada.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}
             </div>
             <div className="mb-2 hidden sm:block">
               <h1 className="text-3xl font-bold text-white drop-shadow-md">{creator.name}</h1>

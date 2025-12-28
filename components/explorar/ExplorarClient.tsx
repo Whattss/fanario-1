@@ -1,61 +1,111 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { collection, query, orderBy, limit, getDocs, where } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import CreatorCard from "@/components/cards/CreatorCard";
-import type { Creator } from "@/lib/sampleData";
 
-export default function ExplorarClient({ initialCreators }: { initialCreators: Creator[] }) {
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("Todos");
+type Creator = {
+  id: string;
+  ownerId: string;
+  name: string;
+  bio: string;
+  category: string;
+  price: number;
+  avatar?: string;
+  cover?: string;
+};
 
-  const categories = ["Todos", ...new Set(initialCreators.map((c) => c.category))];
+export default function ExplorarClient() {
+  const [creators, setCreators] = useState<Creator[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
-  const filtered = initialCreators.filter((c) => {
-    const matchesSearch = c.name.toLowerCase().includes(search.toLowerCase()) || 
-                          c.bio.toLowerCase().includes(search.toLowerCase());
-    const matchesCategory = category === "Todos" || c.category === category;
+  useEffect(() => {
+    async function loadCreators() {
+      try {
+        const q = query(
+          collection(db, "creators"),
+          orderBy("updatedAt", "desc"),
+          limit(50)
+        );
+        const snapshot = await getDocs(q);
+        const data = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Creator[];
+        setCreators(data);
+      } catch (error) {
+        console.error("Error cargando creadores:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadCreators();
+  }, []);
+
+  const categories = Array.from(new Set(creators.map((c) => c.category))).filter(Boolean);
+
+  const filteredCreators = creators.filter((creator) => {
+    const matchesSearch = creator.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         creator.bio.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = selectedCategory === "all" || creator.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
-  return (
-    <div className="space-y-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full max-w-md">
-          <input
-            type="text"
-            placeholder="Buscar creadores..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-full border border-gray-200 bg-white px-5 py-3 pl-12 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
-            style={{ color: "#111827" }}
-          />
-          <svg
-            className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2"
-            style={{ color: "#9ca3af" }}
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-6xl px-4 py-8 pb-24">
+        <div className="animate-pulse space-y-6">
+          <div className="h-10 w-64 rounded bg-gray-200"></div>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3, 4, 5, 6].map((n) => (
+              <div key={n} className="h-80 rounded-2xl bg-gray-200"></div>
+            ))}
+          </div>
         </div>
-        
-        <div className="flex gap-2 overflow-x-auto pb-2 sm:pb-0 no-scrollbar">
+      </div>
+    );
+  }
+
+  return (
+    <main className="mx-auto max-w-6xl px-4 py-8 pb-24 sm:px-8 space-y-8">
+      <header className="space-y-2">
+        <h1 className="text-3xl font-bold text-gray-900">Explora Creadores</h1>
+        <p className="text-gray-600">Descubre y apoya a tu creador favorito</p>
+      </header>
+
+      {/* Search and Filter */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <input
+          type="text"
+          placeholder="Buscar por nombre o descripción..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full sm:w-96 rounded-xl border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-gray-400"
+        />
+
+        <div className="flex gap-2 overflow-x-auto pb-2">
+          <button
+            onClick={() => setSelectedCategory("all")}
+            className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition ${
+              selectedCategory === "all"
+                ? "bg-gray-900 text-white"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            }`}
+          >
+            Todos
+          </button>
           {categories.map((cat) => (
             <button
               key={cat}
-              onClick={() => setCategory(cat)}
-              style={{
-                backgroundColor: category === cat ? "#111827" : "#ffffff",
-                color: category === cat ? "#ffffff" : "#374151",
-                border: category === cat ? "none" : "1px solid #e5e7eb"
-              }}
-              className="whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition"
+              onClick={() => setSelectedCategory(cat)}
+              className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition ${
+                selectedCategory === cat
+                  ? "bg-gray-900 text-white"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
             >
               {cat}
             </button>
@@ -63,18 +113,23 @@ export default function ExplorarClient({ initialCreators }: { initialCreators: C
         </div>
       </div>
 
-      {filtered.length > 0 ? (
+      {/* Results */}
+      {filteredCreators.length === 0 ? (
+        <div className="flex min-h-[40vh] flex-col items-center justify-center text-center">
+          <p className="text-xl font-semibold text-gray-900">No se encontraron creadores</p>
+          <p className="mt-2 text-gray-500">
+            {searchTerm || selectedCategory !== "all"
+              ? "Intenta con otra búsqueda o categoría"
+              : "Sé el primero en crear un perfil de creador"}
+          </p>
+        </div>
+      ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((creator) => (
+          {filteredCreators.map((creator) => (
             <CreatorCard key={creator.id} creator={creator} />
           ))}
         </div>
-      ) : (
-        <div className="py-12 text-center">
-          <p className="text-lg font-medium" style={{ color: "#111827" }}>No se encontraron creadores</p>
-          <p style={{ color: "#6b7280" }}>Prueba con otros términos de búsqueda</p>
-        </div>
       )}
-    </div>
+    </main>
   );
 }
